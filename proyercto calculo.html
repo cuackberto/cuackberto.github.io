@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pugberto.inc | Suite de Cálculo</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Librerías Matemáticas -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.0/math.min.js"></script>
+    
+    <!-- Iconos -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#0f172a',
+                            accent: '#38bdf8', // Cyan
+                            orange: '#fb923c', // Orange
+                            purple: '#a855f7', // Purple
+                            green: '#22c55e',
+                            red: '#ef4444',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .tab-btn.active {
+            background-color: #1e293b;
+            border-bottom: 2px solid #fb923c;
+            color: #fb923c;
+        }
+        .tab-btn {
+            color: #64748b;
+            transition: all 0.2s;
+        }
+        .canvas-grid {
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: #fb923c;
+            margin-top: -6px;
+            cursor: pointer;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer; background: #334155;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 h-screen flex flex-col overflow-hidden">
+
+    <!-- HEADER -->
+    <nav class="bg-slate-900 border-b border-slate-800 flex-none z-50">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-14">
+                <!-- Logo -->
+                <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-paw-print text-brand-orange text-xl"></i>
+                    <h1 class="font-bold text-white tracking-wide">Pugberto<span class="text-brand-accent">.suite</span></h1>
+                </div>
+                
+                <!-- TABS DE NAVEGACIÓN -->
+                <div class="flex h-full gap-1 overflow-x-auto no-scrollbar">
+                    <button onclick="switchTab('graph')" id="btn-graph" class="tab-btn active px-4 h-full flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                        <i class="ph ph-function"></i> Gráfica
+                    </button>
+                    <button onclick="switchTab('solid')" id="btn-solid" class="tab-btn px-4 h-full flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                        <i class="ph ph-cylinder"></i> Sólidos 3D
+                    </button>
+                    <button onclick="switchTab('bridge')" id="btn-bridge" class="tab-btn px-4 h-full flex items-center gap-2 text-sm font-medium whitespace-nowrap">
+                        <i class="ph ph-bridge"></i> Puentes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-grow flex flex-col lg:flex-row h-full overflow-hidden relative">
+        
+        <!-- SIDEBAR DE CONTROLES (Scrollable) -->
+        <div class="w-full lg:w-96 bg-slate-900/50 border-r border-slate-800 flex flex-col z-20 overflow-y-auto custom-scrollbar shadow-xl flex-none lg:h-full h-1/2">
+            
+            <!-- SECCIÓN 1 Y 2: INPUTS GENERALES (Compartido por Gráfica y Sólidos) -->
+            <div id="controls-general" class="p-5 space-y-6">
+                
+                <!-- Input de Función -->
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <label class="text-xs text-brand-accent font-bold uppercase mb-2 block flex justify-between">
+                        <span>Función f(x)</span>
+                        <span id="valid-badge" class="text-green-500 hidden"><i class="ph-fill ph-check-circle"></i></span>
+                    </label>
+                    <input type="text" id="fnInput" value="2 + 0.5 * sin(x)" 
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 font-mono text-brand-orange focus:outline-none focus:border-brand-accent transition"
+                           placeholder="ej: x^2, sqrt(x)...">
+                    
+                    <!-- Rango -->
+                    <div class="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                            <span class="text-[10px] text-slate-500 uppercase">Inicio (a)</span>
+                            <input type="number" id="startInput" value="0" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm">
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-500 uppercase">Fin (b)</span>
+                            <input type="number" id="endInput" value="6" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de Resultados: MODO GRÁFICA -->
+                <div id="panel-graph" class="space-y-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase border-b border-slate-800 pb-1">Análisis 2D</h3>
+                    
+                    <!-- Fórmulas LaTeX -->
+                    <div class="text-sm bg-slate-950 p-3 rounded text-center overflow-x-auto">
+                        <div id="tex-area">$$ A = \int_a^b f(x) dx $$</div>
+                    </div>
+
+                    <!-- Cards de Resultados -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-800 p-3 rounded border-l-2 border-brand-accent">
+                            <div class="text-[10px] text-slate-500 uppercase">Área Bajo Curva</div>
+                            <div id="res-area" class="text-lg font-mono font-bold text-white">0.00</div>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded border-l-2 border-brand-purple">
+                            <div class="text-[10px] text-slate-500 uppercase">Longitud de Arco</div>
+                            <div id="res-length" class="text-lg font-mono font-bold text-white">0.00</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel de Resultados: MODO SÓLIDOS -->
+                <div id="panel-solid" class="space-y-4 hidden">
+                    <h3 class="text-xs font-bold text-brand-orange uppercase border-b border-slate-800 pb-1">Revolución (Eje X)</h3>
+                    
+                    <div class="text-sm bg-slate-950 p-3 rounded text-center overflow-x-auto">
+                        <div id="tex-vol">$$ V = \pi \int_a^b [f(x)]^2 dx $$</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-800 p-3 rounded border-l-2 border-brand-orange">
+                            <div class="text-[10px] text-slate-500 uppercase">Volumen</div>
+                            <div id="res-volume" class="text-lg font-mono font-bold text-white">0.00</div>
+                            <div class="text-[10px] text-slate-600">Unidades cúbicas</div>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded border-l-2 border-green-500">
+                            <div class="text-[10px] text-slate-500 uppercase">Sup. Lateral</div>
+                            <div id="res-surface" class="text-lg font-mono font-bold text-white">0.00</div>
+                            <div class="text-[10px] text-slate-600">Unidades cuadradas</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- SECCIÓN 3: INPUTS PUENTE (Solo visible en tab Bridge) -->
+            <div id="controls-bridge" class="p-5 space-y-6 hidden">
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <h2 class="font-bold text-brand-accent mb-4 flex items-center gap-2">
+                        <i class="ph-fill ph-compass-tool"></i> Diseño Estructural
+                    </h2>
+                    
+                    <div class="space-y-5">
+                        <!-- Longitud -->
+                        <div>
+                            <label class="text-xs text-slate-400 uppercase font-bold flex justify-between mb-1">
+                                Longitud (L) <span class="text-brand-accent"><span id="val-span">100</span> m</span>
+                            </label>
+                            <input type="range" id="rng-span" min="50" max="300" value="100" class="w-full">
+                        </div>
+
+                        <!-- Caída (Sag) -->
+                        <div>
+                            <label class="text-xs text-slate-400 uppercase font-bold flex justify-between mb-1">
+                                Flecha/Caída (f) <span class="text-brand-orange"><span id="val-height">15</span> m</span>
+                            </label>
+                            <input type="range" id="rng-height" min="5" max="100" value="15" class="w-full">
+                        </div>
+
+                        <!-- Tirantes (Hangers) -->
+                        <div>
+                            <label class="text-xs text-slate-400 uppercase font-bold flex justify-between mb-1">
+                                No. Tirantes <span class="text-brand-purple"><span id="val-hangers">10</span></span>
+                            </label>
+                            <input type="range" id="rng-hangers" min="4" max="30" value="10" step="2" class="w-full">
+                        </div>
+
+                         <!-- Carga -->
+                         <div>
+                            <label class="text-xs text-slate-400 uppercase font-bold flex justify-between mb-1">
+                                Carga Dist. (w) <span class="text-slate-300"><span id="val-load">10</span> kN/m</span>
+                            </label>
+                            <input type="range" id="rng-load" min="5" max="50" value="10" step="1" class="w-full">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Resultados de Ingeniería -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-800 p-3 rounded-lg border-t-2 border-brand-red">
+                        <div class="text-[10px] text-slate-500 uppercase">Tensión Máxima</div>
+                        <div id="res-tension-max" class="text-lg font-mono font-bold text-brand-red">0 kN</div>
+                        <div class="text-[10px] text-slate-600">En soportes</div>
+                    </div>
+                    
+                    <div class="bg-slate-800 p-3 rounded-lg border-t-2 border-brand-green">
+                        <div class="text-[10px] text-slate-500 uppercase">Tensión Mínima</div>
+                        <div id="res-tension-min" class="text-lg font-mono font-bold text-brand-green">0 kN</div>
+                        <div class="text-[10px] text-slate-600">En centro</div>
+                    </div>
+
+                    <div class="bg-slate-800 p-3 rounded-lg border-t-2 border-brand-purple col-span-2 flex justify-between items-center">
+                        <div>
+                            <div class="text-[10px] text-slate-500 uppercase">Longitud Cable</div>
+                            <div id="res-bridge-len" class="text-xl font-mono font-bold text-white">0.00 m</div>
+                        </div>
+                         <div class="text-right">
+                             <div class="text-[10px] text-slate-500 uppercase">Exceso</div>
+                             <div id="res-bridge-diff" class="text-sm font-bold text-brand-purple">+0%</div>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRESETS RÁPIDOS -->
+            <div class="p-5 border-t border-slate-800 mt-auto">
+                <p class="text-[10px] text-slate-500 uppercase mb-2 font-bold">Presets Rápidos</p>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setFormula('x^2', -2, 2)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs border border-slate-700 transition">Parábola</button>
+                    <button onclick="setFormula('sqrt(16-x^2)', -4, 4)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs border border-slate-700 transition">Semicírculo</button>
+                    <button onclick="setFormula('sin(x)', 0, 6.28)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs border border-slate-700 transition">Seno</button>
+                    <button onclick="setFormula('1/x', 0.5, 4)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs border border-slate-700 transition">Hipérbola</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- CANVAS AREA -->
+        <div class="flex-grow bg-slate-950 relative overflow-hidden flex flex-col h-1/2 lg:h-full">
+            <!-- Barra de estado del canvas -->
+            <div class="absolute top-4 left-4 z-10 flex gap-2">
+                <span id="badge-mode" class="px-2 py-1 bg-slate-900/80 backdrop-blur border border-brand-accent/30 text-brand-accent text-xs rounded font-mono uppercase shadow-lg">
+                    Modo Gráfica
+                </span>
+                <span id="badge-coords" class="px-2 py-1 bg-slate-900/80 backdrop-blur border border-slate-700 text-slate-400 text-xs rounded font-mono shadow-lg hidden md:block">
+                    X: 0.0 Y: 0.0
+                </span>
+            </div>
+
+            <div class="canvas-grid w-full h-full relative" id="canvas-wrapper">
+                <canvas id="mainCanvas" class="w-full h-full"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // === GESTIÓN DE PESTAÑAS Y ESTADO ===
+        let currentTab = 'graph'; // graph, solid, bridge
+        
+        const els = {
+            fn: document.getElementById('fnInput'),
+            start: document.getElementById('startInput'),
+            end: document.getElementById('endInput'),
+            
+            // Paneles
+            ctrlGeneral: document.getElementById('controls-general'),
+            ctrlBridge: document.getElementById('controls-bridge'),
+            panelGraph: document.getElementById('panel-graph'),
+            panelSolid: document.getElementById('panel-solid'),
+            
+            // Resultados Math
+            resArea: document.getElementById('res-area'),
+            resLength: document.getElementById('res-length'),
+            resVolume: document.getElementById('res-volume'),
+            resSurface: document.getElementById('res-surface'),
+            
+            // Bridge Inputs
+            rngSpan: document.getElementById('rng-span'),
+            rngHeight: document.getElementById('rng-height'),
+            rngHangers: document.getElementById('rng-hangers'),
+            rngLoad: document.getElementById('rng-load'),
+            
+            // Bridge Labels/Results
+            valSpan: document.getElementById('val-span'),
+            valHeight: document.getElementById('val-height'),
+            valHangers: document.getElementById('val-hangers'),
+            valLoad: document.getElementById('val-load'),
+            resBridgeLen: document.getElementById('res-bridge-len'),
+            resBridgeDiff: document.getElementById('res-bridge-diff'),
+            resTensionMax: document.getElementById('res-tension-max'),
+            resTensionMin: document.getElementById('res-tension-min'),
+            
+            // UI
+            badgeMode: document.getElementById('badge-mode'),
+            badgeCoords: document.getElementById('badge-coords'),
+            canvas: document.getElementById('mainCanvas'),
+            wrapper: document.getElementById('canvas-wrapper')
+        };
+
+        const ctx = els.canvas.getContext('2d');
+        let mathState = { compiledFn: null, compiledDer: null, valid: false };
+
+        // === CAMBIO DE TABS ===
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // UI Update Tabs
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + tab).classList.add('active');
+
+            // Show/Hide Panels
+            if (tab === 'bridge') {
+                els.ctrlGeneral.classList.add('hidden');
+                els.ctrlBridge.classList.remove('hidden');
+                els.badgeMode.innerText = "INGENIERÍA ESTRUCTURAL";
+                els.badgeMode.className = "px-2 py-1 bg-slate-900/80 backdrop-blur border border-brand-purple/50 text-brand-purple text-xs rounded font-mono uppercase shadow-lg";
+                updateBridge(); // Recalc Bridge
+            } else {
+                els.ctrlGeneral.classList.remove('hidden');
+                els.ctrlBridge.classList.add('hidden');
+                
+                if (tab === 'solid') {
+                    els.panelGraph.classList.add('hidden');
+                    els.panelSolid.classList.remove('hidden');
+                    els.badgeMode.innerText = "SÓLIDOS DE REVOLUCIÓN";
+                    els.badgeMode.className = "px-2 py-1 bg-slate-900/80 backdrop-blur border border-brand-orange/50 text-brand-orange text-xs rounded font-mono uppercase shadow-lg";
+                } else {
+                    els.panelGraph.classList.remove('hidden');
+                    els.panelSolid.classList.add('hidden');
+                    els.badgeMode.innerText = "ANÁLISIS GRÁFICO";
+                    els.badgeMode.className = "px-2 py-1 bg-slate-900/80 backdrop-blur border border-brand-accent/50 text-brand-accent text-xs rounded font-mono uppercase shadow-lg";
+                }
+                updateMath(); // Recalc General Math
+            }
+            draw();
+        }
+
+        // === LÓGICA GENERAL (TABS 1 & 2) ===
+        function updateMath() {
+            try {
+                const expr = els.fn.value;
+                if (!expr || expr.trim() === "") throw new Error("Empty input");
+
+                const node = math.parse(expr);
+                const code = node.compile();
+                const derivative = math.derivative(node, 'x');
+                const derCode = derivative.compile();
+
+                mathState = { compiledFn: code, compiledDer: derCode, valid: true };
+                
+                // UI Exito
+                document.getElementById('valid-badge').classList.remove('hidden');
+                els.fn.classList.remove('border-red-500', 'text-red-400');
+                els.fn.classList.add('text-brand-orange');
+
+                const a = parseFloat(els.start.value);
+                const b = parseFloat(els.end.value);
+
+                // Cálculo Numérico (Simpson 1/3 compuesto)
+                const n = 100;
+                const h = (b - a) / n;
+                let area = 0, len = 0, vol = 0, surf = 0;
+
+                const f = x => { try { return code.evaluate({x}); } catch { return 0; } };
+                const df = x => { try { return derCode.evaluate({x}); } catch { return 0; } };
+
+                for(let i=0; i<n; i++) {
+                    const x1 = a + i*h;
+                    const x2 = a + (i+1)*h;
+                    const xm = (x1 + x2)/2;
+
+                    // Área (Simple)
+                    area += (f(xm)) * h;
+
+                    // Longitud (Trapecio para estabilidad)
+                    const l1 = Math.sqrt(1 + df(x1)**2);
+                    const l2 = Math.sqrt(1 + df(x2)**2);
+                    len += ((l1 + l2)/2) * h;
+
+                    // Volumen (Discos): pi * f(x)^2
+                    const v1 = Math.PI * f(x1)**2;
+                    const v2 = Math.PI * f(x2)**2;
+                    vol += ((v1+v2)/2) * h;
+
+                    // Superficie: 2*pi * f(x) * sqrt(1+f'(x)^2)
+                    // Tomamos valor absoluto de f(x) por si es negativa
+                    const s1 = 2 * Math.PI * Math.abs(f(x1)) * l1;
+                    const s2 = 2 * Math.PI * Math.abs(f(x2)) * l2;
+                    surf += ((s1+s2)/2) * h;
+                }
+
+                els.resArea.innerText = area.toFixed(2);
+                els.resLength.innerText = len.toFixed(2);
+                els.resVolume.innerText = Math.abs(vol).toFixed(2); // Absoluto
+                els.resSurface.innerText = surf.toFixed(2);
+
+            } catch (e) {
+                // Manejo de error silencioso
+                mathState.valid = false;
+                document.getElementById('valid-badge').classList.add('hidden');
+                els.fn.classList.add('border-red-500', 'text-red-400');
+                els.fn.classList.remove('text-brand-orange');
+                els.resArea.innerText = "---";
+            }
+            draw();
+        }
+
+        // === LÓGICA PUENTES (TAB 3) ===
+        function updateBridge() {
+            const span = parseFloat(els.rngSpan.value); // L
+            const height = parseFloat(els.rngHeight.value); // f (flecha)
+            const hangers = parseInt(els.rngHangers.value);
+            const load = parseFloat(els.rngLoad.value); // w (kN/m)
+
+            // Update Labels
+            els.valSpan.innerText = span;
+            els.valHeight.innerText = height;
+            els.valHangers.innerText = hangers;
+            els.valLoad.innerText = load;
+
+            // 1. Longitud de Cable (Parábola Exacta)
+            // L = (1/2k) * [ u*sqrt(1+u^2) + asinh(u) ] donde u = 2k(w/2) y k=4f/L^2
+            // O integración numérica rápida
+            const k = (4 * height) / (span * span); // Constante de curvatura
+            let length = 0;
+            const steps = 50;
+            const dx = span / steps;
+            for(let i=0; i<steps; i++) {
+                const x = -span/2 + i*dx; // Evaluar de -L/2 a L/2 (origen en centro)
+                const dy_dx = 2 * k * x; // Derivada de y = kx^2 + C
+                length += Math.sqrt(1 + dy_dx*dy_dx) * dx;
+            }
+
+            // 2. Fuerzas (Asumiendo carga uniforme horizontal - Parábola)
+            // Empuje Horizontal (H) = Tensión Mínima (en el centro)
+            // H = w * L^2 / (8 * f)
+            const H = (load * Math.pow(span, 2)) / (8 * height);
+            
+            // Reacción Vertical (V) en soportes = w * L / 2
+            const V = (load * span) / 2;
+
+            // Tensión Máxima (T) en soportes = sqrt(H^2 + V^2)
+            const T_max = Math.sqrt(H*H + V*V);
+
+            // Update DOM
+            els.resBridgeLen.innerText = length.toFixed(2) + " m";
+            const diff = ((length - span)/span)*100;
+            els.resBridgeDiff.innerText = "+" + diff.toFixed(1) + "%";
+
+            els.resTensionMin.innerText = H.toFixed(1) + " kN";
+            els.resTensionMax.innerText = T_max.toFixed(1) + " kN";
+            
+            draw();
+        }
+
+        // === RENDERIZADO ===
+        function draw() {
+            // Resize Canvas
+            const rect = els.wrapper.getBoundingClientRect();
+            els.canvas.width = rect.width;
+            els.canvas.height = rect.height;
+            const w = rect.width;
+            const h = rect.height;
+            const cx = w/2;
+            const cy = h/2;
+
+            ctx.clearRect(0,0,w,h);
+
+            // MODO ARQUITECTO
+            if (currentTab === 'bridge') {
+                drawBridgeMode(w, h, cx, cy);
+                return;
+            }
+
+            // MODOS MATEMÁTICOS (Graph & Solid)
+            if (!mathState.valid) return;
+
+            const a = parseFloat(els.start.value);
+            const b = parseFloat(els.end.value);
+            
+            const steps = 100;
+            let minX = a, maxX = b, minY = 0, maxY = 0;
+            const dx = (b-a)/steps;
+            const points = [];
+            
+            for(let i=0; i<=steps; i++) {
+                const x = a + i*dx;
+                try {
+                    const y = mathState.compiledFn.evaluate({x});
+                    points.push({x,y});
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                } catch {}
+            }
+            
+            const rangeX = (b-a) || 10;
+            const rangeY = (maxY - minY) || 10;
+            const scaleX = (w - 100) / rangeX;
+            const scaleY = (h - 100) / (Math.max(rangeY, Math.abs(maxY)*2.5)); 
+            const scale = Math.min(scaleX, scaleY);
+
+            const toScreenX = (val) => cx + (val - (a+b)/2) * scale;
+            const toScreenY = (val) => cy - val * scale; 
+            
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, cy); ctx.lineTo(w, cy); 
+            ctx.moveTo(toScreenX(0), 0); ctx.lineTo(toScreenX(0), h); 
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = "#38bdf8";
+            points.forEach((p, i) => {
+                if (i===0) ctx.moveTo(toScreenX(p.x), toScreenY(p.y));
+                else ctx.lineTo(toScreenX(p.x), toScreenY(p.y));
+            });
+            ctx.stroke();
+
+            if (currentTab === 'solid') {
+                // ... (mismo código de solidos anterior)
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(56, 189, 248, 0.3)";
+                ctx.setLineDash([5, 5]);
+                points.forEach((p, i) => {
+                    if (i===0) ctx.moveTo(toScreenX(p.x), toScreenY(-p.y)); 
+                    else ctx.lineTo(toScreenX(p.x), toScreenY(-p.y));
+                });
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Relleno rápido
+                ctx.fillStyle = "rgba(56, 189, 248, 0.1)";
+                ctx.beginPath();
+                points.forEach((p, i) => i===0 ? ctx.moveTo(toScreenX(p.x), toScreenY(p.y)) : ctx.lineTo(toScreenX(p.x), toScreenY(p.y)));
+                for(let i=points.length-1; i>=0; i--) {
+                    ctx.lineTo(toScreenX(points[i].x), toScreenY(-points[i].y));
+                }
+                ctx.fill();
+            } 
+            else { 
+                ctx.fillStyle = "rgba(56, 189, 248, 0.2)";
+                ctx.beginPath();
+                points.forEach((p, i) => i===0 ? ctx.moveTo(toScreenX(p.x), toScreenY(p.y)) : ctx.lineTo(toScreenX(p.x), toScreenY(p.y)));
+                ctx.lineTo(toScreenX(points[points.length-1].x), cy);
+                ctx.lineTo(toScreenX(points[0].x), cy);
+                ctx.fill();
+            }
+        }
+
+        function drawBridgeMode(w, h, cx, cy) {
+            const span = parseFloat(els.rngSpan.value);
+            const height = parseFloat(els.rngHeight.value);
+            const hangersCount = parseInt(els.rngHangers.value);
+            
+            const scale = Math.min(w/(span*1.4), h/(height*3));
+            
+            const toSx = (val) => cx + val * scale;
+            const toSy = (val) => (h - 80) - val * scale; // Offset del suelo
+
+            // 0. Fondo (Cielo y Agua)
+            // Agua
+            const waterY = toSy(-10);
+            const gradWater = ctx.createLinearGradient(0, waterY, 0, h);
+            gradWater.addColorStop(0, '#0f172a');
+            gradWater.addColorStop(1, '#1e3a8a');
+            ctx.fillStyle = gradWater;
+            ctx.fillRect(0, waterY, w, h - waterY);
+            
+            // Tierra en orillas
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.moveTo(0, waterY); 
+            ctx.lineTo(toSx(-span/2) - 20, waterY);
+            ctx.lineTo(toSx(-span/2) - 40, h);
+            ctx.lineTo(0, h);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(w, waterY); 
+            ctx.lineTo(toSx(span/2) + 20, waterY);
+            ctx.lineTo(toSx(span/2) + 40, h);
+            ctx.lineTo(w, h);
+            ctx.fill();
+
+            // 1. Torres (Estilizadas)
+            const towerX = span/2;
+            const towerH = height * 1.3;
+            const deckY = 0;
+            
+            ctx.fillStyle = "#cbd5e1";
+            const drawTower = (xPos) => {
+                const tx = toSx(xPos);
+                const tyBase = toSy(-20); // Bajo el agua
+                const tyTop = toSy(towerH);
+                
+                // Pilar principal
+                ctx.fillRect(tx-6, tyTop, 12, tyBase - tyTop);
+                // Base
+                ctx.fillRect(tx-10, toSy(-5), 20, toSy(-20) - toSy(-5));
+                // Tope
+                ctx.fillStyle = "#fb923c";
+                ctx.fillRect(tx-7, tyTop-2, 14, 4);
+                ctx.fillStyle = "#cbd5e1";
+            };
+            
+            drawTower(-towerX);
+            drawTower(towerX);
+
+            // 2. Tablero (Road Deck)
+            ctx.strokeStyle = "#fb923c"; // Orange
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(toSx(-span/2 - 10), toSy(0));
+            ctx.lineTo(toSx(span/2 + 10), toSy(0));
+            ctx.stroke();
+
+            // 3. Cable Principal (Parábola)
+            const k = (4 * height) / (span * span);
+            const vertexY = towerH - height; // Altura más baja del cable (sobre la torre)
+            // Espera, la flecha es la caída desde la torre.
+            // Si torre está en towerH, el punto más bajo es towerH - height.
+            // PERO, normalmente diseñamos para que el punto más bajo toque casi el tablero o tenga un margen.
+            // Vamos a fijar el punto más bajo en Y = 5 (metros sobre tablero).
+            const lowPointY = 5; 
+            const topPointY = lowPointY + height; // Altura de la torre donde conecta el cable
+            
+            // Recalcular K para esta geometría visual
+            // y = kx^2 + lowPointY.  En x=span/2, y=topPointY.
+            // topPointY = k(span/2)^2 + lowPointY  => height = k(span/2)^2 => k = height / (span/2)^2 = 4h/L^2 (Correcto)
+
+            ctx.strokeStyle = "#a855f7"; // Purple
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            const steps = 60;
+            for(let i=0; i<=steps; i++) {
+                const x = -span/2 + (span * i/steps);
+                const y = lowPointY + (k * x * x);
+                if (i===0) ctx.moveTo(toSx(x), toSy(y));
+                else ctx.lineTo(toSx(x), toSy(y));
+            }
+            ctx.stroke();
+
+            // 4. Tirantes (Vertical Hangers)
+            ctx.strokeStyle = "rgba(203, 213, 225, 0.5)"; // Slate 300 half opacity
+            ctx.lineWidth = 1;
+            
+            // Distribuir hangers uniformemente
+            // Si hangers=1, uno en el centro.
+            const hangerSpacing = span / (hangersCount + 1);
+            
+            for(let i=1; i<=hangersCount; i++) {
+                const x = -span/2 + i*hangerSpacing;
+                const yCable = lowPointY + (k * x * x);
+                
+                ctx.beginPath();
+                ctx.moveTo(toSx(x), toSy(yCable));
+                ctx.lineTo(toSx(x), toSy(0)); // Al tablero
+                ctx.stroke();
+                
+                // Punto de conexión
+                ctx.fillStyle = "#a855f7";
+                ctx.beginPath();
+                ctx.arc(toSx(x), toSy(yCable), 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // 5. Vectores de Fuerza (Ingeniería)
+            // Vector T en torre derecha (span/2, topPointY)
+            // Pendiente dy/dx = 2kx. En x=span/2 => 2 * (4h/L^2) * (L/2) = 4h/L
+            const slope = (4 * height) / span;
+            const angle = Math.atan(slope);
+            
+            // Dibujar flecha roja en torre derecha
+            const arrowLen = 40;
+            const tx = toSx(span/2);
+            const ty = toSy(topPointY);
+            
+            ctx.strokeStyle = "#ef4444"; // Red
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(tx, ty);
+            // La fuerza tira del cable HACIA la torre y abajo? No, la torre tira del cable.
+            // El cable tira de la torre hacia ABAJO y ADENTRO.
+            // Vamos a dibujar la tensión del cable: tira hacia el centro y abajo.
+            ctx.lineTo(tx - Math.cos(angle)*arrowLen, ty + Math.sin(angle)*arrowLen); // Canvas Y invertido, + es abajo visualmente? No, toSy invierte.
+            // toSy: +val es arriba. Tensión tira hacia abajo. 
+            // Angulo visual en canvas: 
+            // Vector apunta tangente al cable hacia afuera?
+            // Mostremos la Reacción de la Torre (Sostiene el cable): Arriba y Afuera.
+            // O la Tensión del cable: Abajo y Adentro. Dibujemos Tensión (Red).
+            
+            // Coordenadas canvas crudas
+            const cx_top = tx;
+            const cy_top = ty;
+            const dx_arrow = Math.cos(angle) * arrowLen;
+            const dy_arrow = Math.sin(angle) * arrowLen; // Math.sin > 0. Queremos ir abajo (cy aumenta)
+            
+            ctx.moveTo(cx_top, cy_top);
+            ctx.lineTo(cx_top - dx_arrow, cy_top + dy_arrow); // Izquierda y Abajo (visual canvas)
+            ctx.stroke();
+            
+            // Punta de flecha
+            const arrowTipX = cx_top - dx_arrow;
+            const arrowTipY = cy_top + dy_arrow;
+            // ... (simplificado, solo linea roja basta para indicar fuerza)
+            ctx.fillStyle = "#ef4444";
+            ctx.beginPath();
+            ctx.arc(arrowTipX, arrowTipY, 3, 0, Math.PI*2);
+            ctx.fill();
+
+            // Etiqueta Tmax
+            ctx.fillStyle = "#ef4444";
+            ctx.font = "bold 12px monospace";
+            ctx.fillText("T_max", cx_top - dx_arrow - 10, cy_top + dy_arrow + 15);
+        }
+
+        // Helpers & Listeners
+        window.setFormula = (f, a, b) => {
+            els.fn.value = f;
+            els.start.value = a;
+            els.end.value = b;
+            switchTab('graph');
+        }
+
+        [els.fn, els.start, els.end].forEach(e => e.addEventListener('input', updateMath));
+        [els.rngSpan, els.rngHeight, els.rngHangers, els.rngLoad].forEach(e => e.addEventListener('input', updateBridge));
+        window.addEventListener('resize', draw);
+
+        // Init
+        updateMath();
+        updateBridge();
+
+    </script>
+</body>
+</html>
